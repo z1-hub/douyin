@@ -4,17 +4,11 @@ import (
 	"douyin/src/common"
 	"douyin/src/model"
 	"douyin/src/service"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
 )
 
-// type FavoriteRequest struct{
-// 	Token string `json:"token"`
-// 	VideoId uint `json:"video_id"`
-// 	ActionType uint `json:"action_type"`
-// }
 
 type FavoriteAuthor struct {//从user中获取,getUser函数
 		Id            uint  `json:"id"`
@@ -54,11 +48,6 @@ func Favorite(c *gin.Context) {
 	actionType, _ := strconv.ParseUint(actionTypeStr, 10, 10)
 	videoIdStr := c.Query("video_id")
 	videoId, _ := strconv.ParseUint(videoIdStr, 10, 10)
-	// fmt.Println(userId)
-	// fmt.Println(videoId)
-	// fmt.Println(actionType)
-
-	fmt.Println("token通过验证")
 
 	//函数调用及响应
 	err := service.FavoriteAction(userId,uint(videoId),uint(actionType))
@@ -77,25 +66,22 @@ func Favorite(c *gin.Context) {
 
 //获取列表方法
 func FavoriteList(c *gin.Context) {
-	// //鉴权token
-	// userId := c.Query("user_id")
-
 	//user_id获取
 	getUserId, _ := c.Get("user_id")
-	var userId uint
+	var userIdHost uint
 	if v, ok := getUserId.(uint); ok {
-		userId = v
+		userIdHost = v
 	}
-	fmt.Println(userId)
+	userIdStr := c.Query("user_id")//自己id或别人id
+	userId, _ := strconv.ParseUint(userIdStr, 10, 10)
 
 	//函数调用及响应
-	videoList, err := service.FavoriteList(userId)
+	videoList, err := service.FavoriteList(uint(userId))
 	videoListNew := make([]FavoriteVideo, 0)
 	for _, m := range videoList {
 		var author = FavoriteAuthor{}
 		var getAuthor = model.User{}
 		getAuthor, err := service.GetUser(m.AuthorId)//参数类型、错误处理
-		fmt.Println(getAuthor)
 		if err != nil {
 			c.JSON(http.StatusOK, common.Response{
 				StatusCode: 403,
@@ -104,14 +90,16 @@ func FavoriteList(c *gin.Context) {
 			c.Abort()
 			return
 		}
-		//isfollow
-		flag := service.IsFollowing(userId, m.ID)//参数类型、错误处理
+		//isfollowing
+		isfollowing := service.IsFollowing(userIdHost, m.AuthorId)//参数类型、错误处理
+		//isfavorite
+		isfavorite := service.CheckFavorite(userIdHost, m.ID) 
 		//作者信息
 		author.Id = getAuthor.ID
 		author.Name = getAuthor.Name
 		author.FollowCount = getAuthor.FollowCount
 		author.FollowerCount = getAuthor.FollowerCount
-		author.IsFollow = flag
+		author.IsFollow = isfollowing
 		//组装
 		var video = FavoriteVideo{}
 		video.Id = m.ID//类型转换 
@@ -120,7 +108,7 @@ func FavoriteList(c *gin.Context) {
 		video.CoverUrl = m.CoverUrl
 		video.FavoriteCount = m.FavoriteCount
 		video.CommentCount = m.CommentCount
-		video.IsFavorite = true
+		video.IsFavorite = isfavorite
 		video.Title = m.Title
 		
 		videoListNew = append(videoListNew, video)
