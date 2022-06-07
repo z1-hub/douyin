@@ -6,6 +6,7 @@ import (
 "github.com/jinzhu/gorm"
 )
 
+
 //查询某用户是否点赞某视频
 func CheckFavorite(uid uint, vid uint) bool {
 var total int
